@@ -21,62 +21,49 @@ class Graph {
     fun getNeighbours(from: Vertex): List<Vertex> = edges[from] ?: listOf()
 }
 
-class Solver {
 
-    fun solve(graph: Graph, root: Vertex, universitiesPairCount: Int): Long {
-        calcUniversitiesInSubtrees(graph, root)
-        val optimalRoot = findOptimalRoot(graph, root, universitiesPairCount)
-        return calcSumOfDistancesToRoot(graph, optimalRoot)
+fun solve(graph: Graph, root: Vertex, universitiesPairCount: Int): Long {
+    calcUniversitiesInSubtrees(graph, root)
+    val optimalRoot = findOptimalRoot(graph, root, universitiesPairCount)!!
+    return calcSumOfDistancesToRoot(graph, optimalRoot)
+}
+
+private fun calcSumOfDistancesToRoot(graph: Graph, curVertex: Vertex,
+                                     parent: Vertex? = null, distToRoot: Int = 0): Long {
+    val sumInChildren = graph.getNeighbours(curVertex).filter { it != parent }.map {
+        calcSumOfDistancesToRoot(graph, it, curVertex, distToRoot + 1)
+    }.sum()
+
+    return if (curVertex.hasUniversity) sumInChildren + distToRoot else sumInChildren
+}
+
+private fun calcUniversitiesInSubtrees(graph: Graph, curVertex: Vertex, parent: Vertex? = null): Int {
+    val childCount = graph.getNeighbours(curVertex).filter { it != parent }.map {
+        calcUniversitiesInSubtrees(graph, it, curVertex)
+    }.sum()
+
+    val childCountAndMe = if (curVertex.hasUniversity) childCount + 1 else childCount
+    curVertex.universitiesInSubtree = childCountAndMe
+    return childCountAndMe
+}
+
+private fun findOptimalRoot(graph: Graph, curVertex: Vertex, universitiesPairCount: Int,
+                            parent: Vertex? = null, universitiesAbove: Int = 0): Vertex? {
+    val children = graph.getNeighbours(curVertex).filter { it != parent }
+    if (children.isEmpty()) {
+        return if (universitiesAbove <= universitiesPairCount) curVertex else null
     }
 
-    private fun calcSumOfDistancesToRoot(graph: Graph, root: Vertex): Long =
-            calcSumOfDistancesToRoot(graph, root, null, 0)
+    val vertexWithMaxUniversitiesInSubtree = children.maxBy { it.universitiesInSubtree }!!
+    val maxUniversitiesCount = vertexWithMaxUniversitiesInSubtree.universitiesInSubtree
 
-    private fun calcSumOfDistancesToRoot(graph: Graph, curVertex: Vertex,
-                                         parent: Vertex?, distToRoot: Int): Long {
-        val sumInChildren = graph.getNeighbours(curVertex).filter { it != parent }.map {
-            calcSumOfDistancesToRoot(graph, it, curVertex, distToRoot + 1)
-        }.sum()
-
-        return if (curVertex.hasUniversity) sumInChildren + distToRoot else sumInChildren
-    }
-
-    private fun calcUniversitiesInSubtrees(graph: Graph, root: Vertex) {
-        calcUniversitiesInSubtrees(graph, root, null)
-    }
-
-    private fun calcUniversitiesInSubtrees(graph: Graph, curVertex: Vertex, parent: Vertex?): Int {
-        val childCount = graph.getNeighbours(curVertex).filter { it != parent }.map {
-            calcUniversitiesInSubtrees(graph, it, curVertex)
-        }.sum()
-
-        val childCountAndMe = if (curVertex.hasUniversity) childCount + 1 else childCount
-        curVertex.universitiesInSubtree = childCountAndMe
-        return childCountAndMe
-    }
-
-    private fun findOptimalRoot(graph: Graph, root: Vertex, universitiesPairCount: Int): Vertex =
-            findOptimalRoot(graph, root, null, 0, universitiesPairCount)!!
-
-    private fun findOptimalRoot(graph: Graph, curVertex: Vertex, parent: Vertex?, universitiesAbove: Int,
-                                universitiesPairCount: Int): Vertex? {
-        val children = graph.getNeighbours(curVertex).filter { it != parent }
-        if (children.isEmpty()) {
-            return if (universitiesAbove <= universitiesPairCount) curVertex else null
-        }
-        
-        val vertexWithMaxUniversitiesInSubtree = children.maxBy { it.universitiesInSubtree }!!
-        val maxUniversitiesCount = vertexWithMaxUniversitiesInSubtree.universitiesInSubtree
-
-        return if (Math.max(maxUniversitiesCount, universitiesAbove) <= universitiesPairCount ) {
-            curVertex
-        } else {
-            children.mapNotNull {
-                findOptimalRoot(graph, it, curVertex,
-                        universitiesAbove + curVertex.universitiesInSubtree - it.universitiesInSubtree,
-                        universitiesPairCount)
-            }.firstOrNull()
-        }
+    return if (Math.max(maxUniversitiesCount, universitiesAbove) <= universitiesPairCount ) {
+        curVertex
+    } else {
+        children.mapNotNull {
+            findOptimalRoot(graph, it, universitiesPairCount, curVertex,
+                    universitiesAbove + curVertex.universitiesInSubtree - it.universitiesInSubtree)
+        }.firstOrNull()
     }
 }
 
@@ -117,5 +104,5 @@ fun main(args: Array<String>) {
         graph.addEdge(vertices[from - 1], vertices[to - 1])
     }
 
-    println(Solver().solve(graph, vertices[0], universityPairCount))
+    println(solve(graph, vertices[0], universityPairCount))
 }

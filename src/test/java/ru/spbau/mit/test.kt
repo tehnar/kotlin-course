@@ -21,7 +21,7 @@ class TestSource {
         vertices[5].hasUniversity = true
         vertices[1].hasUniversity = true
 
-        assertEquals(6, Solver().solve(graph, vertices[0], universityPairCount))
+        assertEquals(6, solve(graph, vertices[0], universityPairCount))
     }
 
     @Test
@@ -46,6 +46,6 @@ class TestSource {
         vertices[4].hasUniversity = true
         vertices[8].hasUniversity = true
 
-        assertEquals(9, Solver().solve(graph, vertices[0], universityPairCount))
+        assertEquals(9, solve(graph, vertices[0], universityPairCount))
     }
 }
