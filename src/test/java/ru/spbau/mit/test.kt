@@ -7,15 +7,15 @@ class TestSource {
     private val stringWriter = StringWriter()
     private val writer = TexWriter(4, stringWriter)
 
-    @Test(expected = TexException::class)
+    @Test(expected = IllegalArgumentException::class)
     fun testEmpty() {
-        document {  }.writeTo(writer, 0)
+        document {  }.writeTo(writer)
 
     }
 
     @Test
     fun testEmptyWithClass() {
-        document { documentClass("testClass") }.writeTo(writer, 0)
+        document { documentClass("testClass") }.writeTo(writer)
         assertEquals("""
             \documentclass{testClass}
             \begin{document}
@@ -31,7 +31,7 @@ class TestSource {
             usePackage("package1", "1=2", "3=4")
             usePackage("package2")
             usePackage("package3", "123")
-        }.writeTo(writer, 0)
+        }.writeTo(writer)
 
         assertEquals("""
             \documentclass{testClass}
@@ -53,7 +53,7 @@ class TestSource {
                 item { +"item3" }
             }
 
-        }.writeTo(writer, 0)
+        }.writeTo(writer)
 
         assertEquals("""
             \documentclass{testClass}
@@ -80,7 +80,7 @@ class TestSource {
                 +"/"
                 +"3"
             }
-        }.writeTo(writer, 0)
+        }.writeTo(writer)
 
         assertEquals("""
             \documentclass{testClass}
@@ -107,7 +107,7 @@ class TestSource {
                     +"centerAlignMath"
                 }
             }
-        }.writeTo(writer, 0)
+        }.writeTo(writer)
 
         assertEquals("""
             \documentclass{testClass}
@@ -142,7 +142,7 @@ class TestSource {
                     +"blockText"
                 }
             }
-        }.writeTo(writer, 0)
+        }.writeTo(writer)
 
         assertEquals("""
             \documentclass{testClass}

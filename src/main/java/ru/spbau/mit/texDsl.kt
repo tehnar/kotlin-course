@@ -4,9 +4,7 @@ import java.io.OutputStreamWriter
 
 class TexWriter(private val indentSize: Int, private val out: Appendable) {
 
-    fun indent(indentLevel: Int) {
-        out.append(" ".repeat(indentLevel * indentSize))
-    }
+    var curIndent = 0
 
     fun args(args: List<String>) {
         if (args.isNotEmpty()) {
@@ -21,7 +19,7 @@ class TexWriter(private val indentSize: Int, private val out: Appendable) {
     }
 
     fun text(text: String) {
-        out.append(text)
+        out.append(" ".repeat(curIndent * indentSize)).append(text)
     }
 
     fun newLine() {
@@ -33,12 +31,11 @@ class TexWriter(private val indentSize: Int, private val out: Appendable) {
 
 @TexTagMaker
 interface Element {
-    fun writeTo(writer: TexWriter, indentLevel: Int)
+    fun writeTo(writer: TexWriter)
 }
 
 class TextElement(val text: String): Element {
-    override fun writeTo(writer: TexWriter, indentLevel: Int) {
-        writer.indent(indentLevel)
+    override fun writeTo(writer: TexWriter) {
         writer.text(text)
     }
 }
@@ -48,8 +45,7 @@ abstract class InlineCommand(
         private val args: List<String> = listOf(),
         private vararg val optionalArgs: String
 ) : Element {
-    override fun writeTo(writer: TexWriter, indentLevel: Int) {
-        writer.indent(indentLevel)
+    override fun writeTo(writer: TexWriter) {
         writer.text("\\$name")
         writer.optionalArgs(optionalArgs)
         writer.args(args)
@@ -64,17 +60,19 @@ abstract class BlockCommand(
 ): Element {
     protected val children: MutableList<Element> = mutableListOf()
 
-    override fun writeTo(writer: TexWriter, indentLevel: Int) {
-        writer.indent(indentLevel)
+    override fun writeTo(writer: TexWriter) {
         writer.text("\\begin{$name}")
         writer.optionalArgs(optionalArgs)
         writer.args(args)
         writer.newLine()
+
+        writer.curIndent++
         children.forEach {
-            it.writeTo(writer, indentLevel + 1)
+            it.writeTo(writer)
             writer.newLine()
         }
-        writer.indent(indentLevel)
+        writer.curIndent--
+
         writer.text("\\end{$name}")
     }
 
@@ -122,14 +120,16 @@ abstract class ListCommand(
 }
 
 class ItemCommand : TextBlockCommand("item") {
-    override fun writeTo(writer: TexWriter, indentLevel: Int) {
-        writer.indent(indentLevel)
+    override fun writeTo(writer: TexWriter) {
         writer.text("\\item")
         writer.newLine()
+
+        writer.curIndent++
         children.forEach {
-            it.writeTo(writer, indentLevel + 1)
+            it.writeTo(writer)
             writer.newLine()
         }
+        writer.curIndent--
     }
 }
 
@@ -177,16 +177,12 @@ class DocumentClass(clazz: String, vararg options: String):
 class UsePackage(packageName: String, vararg options: String):
         InlineCommand("usepackage", listOf(packageName), *options)
 
-class TexException(reason: String): Exception(reason)
-
 class TexDocument: TextBlockCommand("") {
     private var documentClass: DocumentClass? = null
     private val packages: MutableList<UsePackage> = mutableListOf()
 
     fun documentClass(clazz: String, vararg options: String) {
-        if (documentClass != null) {
-            throw TexException("Multiple documentClass statements")
-        }
+        require(documentClass == null) { "Multiple documentClass statements" }
         documentClass = DocumentClass(clazz, *options)
     }
 
@@ -195,21 +191,26 @@ class TexDocument: TextBlockCommand("") {
     fun frame(frameTitle: String, vararg options: String, init: FrameCommand.() -> Unit) =
             initAndAddElement(FrameCommand(frameTitle, *options), init)
 
-    override fun writeTo(writer: TexWriter, indentLevel: Int) {
-        documentClass?.writeTo(writer, indentLevel) ?: throw TexException("Document class is not specified")
+    override fun writeTo(writer: TexWriter) {
+        require(documentClass != null) { "Document class is not specified" }
+
+        documentClass?.writeTo(writer)
         writer.newLine()
         packages.forEach {
-            it.writeTo(writer, indentLevel)
+            it.writeTo(writer)
             writer.newLine()
         }
-        writer.indent(indentLevel)
+
         writer.text("\\begin{document}")
         writer.newLine()
+
+        writer.curIndent++
         children.forEach {
-            it.writeTo(writer, indentLevel + 1)
+            it.writeTo(writer)
             writer.newLine()
         }
-        writer.indent(indentLevel)
+        writer.curIndent--
+
         writer.text("\\end{document}")
         writer.newLine()
     }
@@ -249,6 +250,6 @@ fun main(args: Array<String>) {
                     customInlineCommand("sin", listOf("0.123"))
                 }
             }
-        }.writeTo(TexWriter(2, it), 0)
+        }.writeTo(TexWriter(2, it))
     }
 }
