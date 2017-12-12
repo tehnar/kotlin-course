@@ -1,38 +1,39 @@
 package ru.spbau.mit
 
-import java.io.Closeable
 import java.io.OutputStreamWriter
-import java.io.Writer
 
-class TexWriter(private val identSize: Int, private val out: Writer): Closeable {
+class TexWriter(private val indentSize: Int, private val out: Appendable) {
 
-    override fun close() = out.close()
-
-    fun indent(indentLevel: Int) = out.write(" ".repeat(indentLevel * identSize))
+    fun indent(indentLevel: Int) {
+        out.append(" ".repeat(indentLevel * indentSize))
+    }
 
     fun args(args: List<String>) {
         if (args.isNotEmpty()) {
-            out.write(args.joinToString("}{", "{", "}"))
+            out.append(args.joinToString("}{", "{", "}"))
         }
     }
 
     fun optionalArgs(args: Array<out String>) {
         if (args.isNotEmpty()) {
-            out.write(args.joinToString(",", "[", "]"))
+            out.append(args.joinToString(",", "[", "]"))
         }
     }
 
-    fun text(text: String) = out.write(text)
+    fun text(text: String) {
+        out.append(text)
+    }
 
-    fun newLine() = out.write("\n")
+    fun newLine() {
+        out.append("\n")
+    }
 }
 
+@DslMarker annotation class TexTagMaker
+
+@TexTagMaker
 interface Element {
-
     fun writeTo(writer: TexWriter, indentLevel: Int)
-
-    companion object Element {
-    }
 }
 
 class TextElement(val text: String): Element {
@@ -42,12 +43,11 @@ class TextElement(val text: String): Element {
     }
 }
 
-@DslMarker annotation class TexTagMaker
-
-@TexTagMaker
-abstract class InlineCommand(private val name: String,
-                             private val args: List<String> = listOf(),
-                             private vararg val optionalArgs: String): Element {
+abstract class InlineCommand(
+        private val name: String,
+        private val args: List<String> = listOf(),
+        private vararg val optionalArgs: String
+) : Element {
     override fun writeTo(writer: TexWriter, indentLevel: Int) {
         writer.indent(indentLevel)
         writer.text("\\$name")
@@ -57,11 +57,12 @@ abstract class InlineCommand(private val name: String,
 }
 
 
-@TexTagMaker
-abstract class BlockCommand(private val name: String,
-                            private val args: List<String> = listOf(),
-                            private vararg val optionalArgs: String): Element {
-    val children: MutableList<Element> = mutableListOf()
+abstract class BlockCommand(
+        private val name: String,
+        private val args: List<String> = listOf(),
+        private vararg val optionalArgs: String
+): Element {
+    protected val children: MutableList<Element> = mutableListOf()
 
     override fun writeTo(writer: TexWriter, indentLevel: Int) {
         writer.indent(indentLevel)
@@ -98,17 +99,23 @@ abstract class BlockCommand(private val name: String,
     }
 }
 
-class CustomInlineCommand(name: String,
-                          args: List<String> = listOf(),
-                          vararg optionalArgs: String): InlineCommand(name, args, *optionalArgs)
+class CustomInlineCommand(
+        name: String,
+        args: List<String> = listOf(),
+        vararg optionalArgs: String
+): InlineCommand(name, args, *optionalArgs)
 
-class CustomBlockCommand(name: String,
-                         args: List<String> = listOf(),
-                         vararg optionalArgs: String): BlockCommand(name, args, *optionalArgs)
+class CustomBlockCommand(
+        name: String,
+        args: List<String> = listOf(),
+        vararg optionalArgs: String
+): BlockCommand(name, args, *optionalArgs)
 
-abstract class ListCommand(name: String,
-                           args: List<String> = listOf(),
-                           vararg optionalArgs: String): TextBlockCommand(name, args, *optionalArgs) {
+abstract class ListCommand(
+        name: String,
+        args: List<String> = listOf(),
+        vararg optionalArgs: String
+): BlockCommand(name, args, *optionalArgs) {
     fun item(init: TextBlockCommand.() -> Unit) {
         initAndAddElement(ItemCommand(), init)
     }
@@ -146,17 +153,14 @@ class RightAlign : TextBlockCommand("flushright")
 
 class CenterAlign : TextBlockCommand("center")
 
-open class TextBlockCommand(name: String,
-                            args: List<String> = listOf(),
-                            vararg optionalArgs: String): BlockCommand(name, args, *optionalArgs) {
+open class TextBlockCommand(
+        name: String,
+        args: List<String> = listOf(),
+        vararg optionalArgs: String): BlockCommand(name, args, *optionalArgs
+) {
     fun enumerate(init: EnumerateCommand.() -> Unit) = initAndAddElement(EnumerateCommand(), init)
 
-
     fun itemize(init: ItemizeCommand.() -> Unit) = initAndAddElement(ItemizeCommand(), init)
-
-
-    fun frame(frameTitle: String, vararg options: String, init: FrameCommand.() -> Unit) =
-            initAndAddElement(FrameCommand(frameTitle, *options), init)
 
     fun math(init: MathCommand.() -> Unit) = initAndAddElement(MathCommand(), init)
 
@@ -188,6 +192,9 @@ class TexDocument: TextBlockCommand("") {
 
     fun usePackage(packageName: String, vararg options: String) = packages.add(UsePackage(packageName, *options))
 
+    fun frame(frameTitle: String, vararg options: String, init: FrameCommand.() -> Unit) =
+            initAndAddElement(FrameCommand(frameTitle, *options), init)
+
     override fun writeTo(writer: TexWriter, indentLevel: Int) {
         documentClass?.writeTo(writer, indentLevel) ?: throw TexException("Document class is not specified")
         writer.newLine()
@@ -216,14 +223,14 @@ fun document(init: TexDocument.() -> Unit): TexDocument {
 
 fun main(args: Array<String>) {
     val rows = listOf("aaa", "bbb", "ccc")
-    TexWriter(2, OutputStreamWriter(System.out)).use {
+    OutputStreamWriter(System.out).use {
         document {
             documentClass("beamer")
             usePackage("babel", "russian" /* varargs */)
-            frame(frameTitle="frametitle") {
+            frame(frameTitle = "frametitle") {
                 itemize {
                     for (row in rows) {
-                        item { + "$row text" }
+                        item { +"$row text" }
                     }
                     customInlineCommand("setcounter", listOf("enumi", "10"))
                     item { +"11th item" }
@@ -238,10 +245,10 @@ fun main(args: Array<String>) {
                 }
                 math {
                     customInlineCommand("frac", listOf("x + y", "z - t"))
-                    + " + "
+                    +" + "
                     customInlineCommand("sin", listOf("0.123"))
                 }
             }
-        }.writeTo(it, 0)
+        }.writeTo(TexWriter(2, it), 0)
     }
 }

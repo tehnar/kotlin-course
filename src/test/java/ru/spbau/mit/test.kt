@@ -50,10 +50,6 @@ class TestSource {
             documentClass("testClass")
             enumerate {
                 item { +"item1" }
-                itemize {
-                    item { +"item21" }
-                    item { +"item22" }
-                }
                 item { +"item3" }
             }
 
@@ -66,14 +62,6 @@ class TestSource {
                     \item
                         item1
 
-                    \begin{itemize}
-                        \item
-                            item21
-
-                        \item
-                            item22
-
-                    \end{itemize}
                     \item
                         item3
 
